@@ -4,6 +4,10 @@ import "./App.css";
 
 const TYPES = ["URL", "Text", "Email", "Phone", "Wi-Fi"];
 
+// localStorage mein recent QR codes isi naam se save honge, aur max kitne rakhne hain
+const RECENT_KEY = "qr-designer-recent";
+const MAX_RECENT = 10;
+
 // Predefined looks. Sab mein dark foreground aur light background rakha hai,
 // kyunki ulta (light on dark) QR kai scanners padh nahi pate.
 const PRESETS = [
@@ -76,6 +80,93 @@ function buildPayload(type, f) {
   return { error: "Unknown QR type." };
 }
 
+// ---------- Readability (scan reliability) helpers ----------
+
+// "#rrggbb" ko [r, g, b] numbers mein badalta hai
+function hexToRgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// Color kitna "bright" hai (0 = kaala, 1 = safed). WCAG ka standard formula.
+function luminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// Do colors ke beech contrast ratio (1 = same color, 21 = kaala vs safed)
+function contrastRatio(a, b) {
+  const l1 = luminance(a);
+  const l2 = luminance(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+// Style aur content dekh ke warnings ki list banata hai
+function getWarnings(style, payload) {
+  const warnings = [];
+  if (!payload) return warnings;
+
+  const ratio = contrastRatio(style.fg, style.bg);
+
+  if (luminance(style.fg) > luminance(style.bg)) {
+    warnings.push(
+      "Foreground is lighter than the background (inverted). Many scanners cannot read inverted QR codes."
+    );
+  }
+  if (ratio < 3) {
+    warnings.push(
+      `Very low contrast (${ratio.toFixed(1)}:1). This QR code will likely not scan.`
+    );
+  } else if (ratio < 4.5) {
+    warnings.push(
+      `Low contrast (${ratio.toFixed(1)}:1). It may be hard to scan in poor light.`
+    );
+  }
+  if (style.margin < 2) {
+    warnings.push(
+      "Margin is very small. Scanners need empty space around the QR code (4 is recommended)."
+    );
+  }
+  if (style.size < 160) {
+    warnings.push("The QR code is small. It may be hard to scan from a distance.");
+  }
+  if (payload.length > 300) {
+    warnings.push(
+      "Long content makes a dense QR code. Use a larger size or a lower error correction level."
+    );
+  }
+  return warnings;
+}
+
+// ---------- Recent QR codes helpers ----------
+
+// Page khulte hi localStorage se purane recent codes padhta hai.
+// Kuch galat ho (khaali, corrupt data) toh khaali list de deta hai.
+function loadRecent() {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+// Recent list mein dikhane ke liye chhota label (Wi-Fi ka password nahi dikhata)
+function describe(type, f) {
+  let text = "";
+  if (type === "URL") text = f.url.trim();
+  if (type === "Text") text = f.text.trim();
+  if (type === "Email") text = f.email.trim();
+  if (type === "Phone") text = f.phone.trim();
+  if (type === "Wi-Fi") text = f.ssid.trim();
+  if (text.length > 28) text = text.slice(0, 28) + "...";
+  return `${type}: ${text}`;
+}
+
 function App() {
   const [type, setType] = useState("URL");
   const [fields, setFields] = useState({
@@ -99,6 +190,10 @@ function App() {
 
   // preset lagate waqt size kya tha (initial Classic preset 256 par hai)
   const [presetSize, setPresetSize] = useState(256);
+
+  // recent QR codes. useState(loadRecent) ek baar page khulte waqt chalta hai,
+  // isliye refresh ke baad bhi list wapas aa jaati hai.
+  const [recent, setRecent] = useState(loadRecent);
 
   const canvasRef = useRef(null);
 
@@ -126,16 +221,45 @@ function App() {
         )
       : undefined;
 
+  const { payload, error } = buildPayload(type, fields);
+  const warnings = getWarnings(style, payload);
+
+  // abhi ka QR recent list mein sabse upar save karta hai.
+  // Same content + same look pehle se ho toh duplicate nahi banta, bas upar aa jaata hai.
+  const saveRecent = () => {
+    if (error) return;
+    const key = JSON.stringify([type, payload, style]);
+    const item = {
+      key,
+      type,
+      fields,
+      style,
+      label: describe(type, fields),
+      thumb: canvasRef.current.toDataURL("image/png"),
+    };
+    setRecent((prev) =>
+      [item, ...prev.filter((r) => r.key !== key)].slice(0, MAX_RECENT)
+    );
+  };
+
+  // recent list mein se kisi item par click karne par uski saari settings wapas aa jaati hain
+  const reuseRecent = (item) => {
+    setType(item.type);
+    setFields(item.fields);
+    setStyle(item.style);
+    setPresetSize(item.style.size);
+  };
+
   // canvas ko PNG image bana ke download karwata hai.
   // Canvas hi preview hai, isliye download bilkul preview jaisa hota hai.
+  // Download karte waqt QR recent mein bhi save ho jaata hai.
   const downloadPng = () => {
     const link = document.createElement("a");
     link.download = "qr-code.png";
     link.href = canvasRef.current.toDataURL("image/png");
     link.click();
+    saveRecent();
   };
-
-  const { payload, error } = buildPayload(type, fields);
 
   // payload ya style badle toh QR dobara draw karo (sirf tab jab input sahi ho)
   useEffect(() => {
@@ -155,6 +279,15 @@ function App() {
       );
     }
   }, [payload, style]);
+
+  // recent list badle toh localStorage mein save karo
+  useEffect(() => {
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
+    } catch (err) {
+      console.error("Could not save recent QR codes:", err);
+    }
+  }, [recent]);
 
   return (
     <div className="app">
@@ -314,9 +447,52 @@ function App() {
         style={{ display: error ? "none" : "inline-block" }}
       ></canvas>
 
-      <button className="download" onClick={downloadPng} disabled={!!error}>
-        Download PNG
-      </button>
+      {warnings.length > 0 && (
+        <div className="warnings">
+          {warnings.map((w) => (
+            <p key={w} className="warning">
+              ⚠ {w}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div className="actions">
+        <button className="download" onClick={downloadPng} disabled={!!error}>
+          Download PNG
+        </button>
+        <button className="secondary" onClick={saveRecent} disabled={!!error}>
+          Save to recent
+        </button>
+      </div>
+
+      <div className="recent">
+        <div className="recent-header">
+          <h2>Recent QR codes</h2>
+          {recent.length > 0 && (
+            <button className="link-button" onClick={() => setRecent([])}>
+              Clear all
+            </button>
+          )}
+        </div>
+
+        {recent.length === 0 ? (
+          <p className="empty">
+            Nothing yet. QR codes you download or save will show up here.
+          </p>
+        ) : (
+          <ul className="recent-list">
+            {recent.map((item) => (
+              <li key={item.key}>
+                <button className="recent-item" onClick={() => reuseRecent(item)}>
+                  <img src={item.thumb} alt="" />
+                  <span>{item.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
