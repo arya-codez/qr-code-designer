@@ -45,3 +45,46 @@
   color: #d93025;
   margin: 8px 0 16px;
 }
+.customize {
+  text-align: left;
+  margin: 16px 0 24px;
+  padding: 12px 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.customize h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+.control {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.customize input[type="range"] {
+  padding: 0;
+  margin: 6px 0 0;
+}
+
+.customize input[type="color"] {
+  height: 40px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.color-row {
+  display: flex;
+  gap: 12px;
+}
+
+.color-row .control {
+  flex: 1;
+}
+
+canvas {
+  max-width: 100%;
+  height: auto !important;
+}

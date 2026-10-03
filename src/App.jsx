@@ -77,21 +77,42 @@ function App() {
     password: "",
     security: "WPA",
   });
+
+  // QR ke look se jude saare settings ek object mein
+  const [style, setStyle] = useState({
+    size: 256,
+    margin: 4,
+    fg: "#000000",
+    bg: "#ffffff",
+    ecl: "M",
+  });
+
   const canvasRef = useRef(null);
 
-  // ek field badalne ka helper
+  // ek field / ek style setting badalne ke helpers
   const update = (key, value) => setFields({ ...fields, [key]: value });
+  const updateStyle = (key, value) => setStyle({ ...style, [key]: value });
 
   const { payload, error } = buildPayload(type, fields);
 
-  // payload badle toh QR dobara draw karo (sirf tab jab input sahi ho)
+  // payload ya style badle toh QR dobara draw karo (sirf tab jab input sahi ho)
   useEffect(() => {
     if (payload) {
-      QRCode.toCanvas(canvasRef.current, payload, { width: 256 }, (err) => {
-        if (err) console.error(err);
-      });
+      QRCode.toCanvas(
+        canvasRef.current,
+        payload,
+        {
+          width: style.size,
+          margin: style.margin,
+          errorCorrectionLevel: style.ecl,
+          color: { dark: style.fg, light: style.bg },
+        },
+        (err) => {
+          if (err) console.error(err);
+        }
+      );
     }
-  }, [payload]);
+  }, [payload, style]);
 
   return (
     <div className="app">
@@ -167,6 +188,65 @@ function App() {
       )}
 
       {error && <p className="error">{error}</p>}
+
+      <div className="customize">
+        <h2>Customize</h2>
+
+        <label className="control">
+          Size: {style.size}px
+          <input
+            type="range"
+            min="128"
+            max="512"
+            step="16"
+            value={style.size}
+            onChange={(e) => updateStyle("size", Number(e.target.value))}
+          />
+        </label>
+
+        <label className="control">
+          Margin: {style.margin}
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={style.margin}
+            onChange={(e) => updateStyle("margin", Number(e.target.value))}
+          />
+        </label>
+
+        <div className="color-row">
+          <label className="control">
+            Foreground
+            <input
+              type="color"
+              value={style.fg}
+              onChange={(e) => updateStyle("fg", e.target.value)}
+            />
+          </label>
+          <label className="control">
+            Background
+            <input
+              type="color"
+              value={style.bg}
+              onChange={(e) => updateStyle("bg", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <label className="control">
+          Error correction
+          <select
+            value={style.ecl}
+            onChange={(e) => updateStyle("ecl", e.target.value)}
+          >
+            <option value="L">Low (7%)</option>
+            <option value="M">Medium (15%)</option>
+            <option value="Q">Quartile (25%)</option>
+            <option value="H">High (30%)</option>
+          </select>
+        </label>
+      </div>
 
       <canvas
         ref={canvasRef}
