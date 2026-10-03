@@ -1,0 +1,47 @@
+.app {
+  max-width: 420px;
+  margin: 40px auto;
+  padding: 0 16px;
+  text-align: center;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 8px 14px;
+  border: 1px solid #888;
+  border-radius: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: #4285f4;
+  border-color: #4285f4;
+  color: white;
+}
+
+.app input,
+.app textarea,
+.app select {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.app textarea {
+  min-height: 90px;
+}
+
+.error {
+  color: #d93025;
+  margin: 8px 0 16px;
+}
