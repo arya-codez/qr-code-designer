@@ -88,3 +88,59 @@ canvas {
   max-width: 100%;
   height: auto !important;
 }
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.preset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid #888;
+  border-radius: 20px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.preset.active {
+  border-color: #4285f4;
+  box-shadow: 0 0 0 2px #4285f4;
+}
+
+.swatch {
+  width: 24px;
+  height: 24px;
+  border: 2px solid;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.download {
+  display: block;
+  margin: 16px auto 40px;
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  background: #4285f4;
+  color: white;
+  cursor: pointer;
+}
+
+.download:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}

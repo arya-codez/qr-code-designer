@@ -4,6 +4,16 @@ import "./App.css";
 
 const TYPES = ["URL", "Text", "Email", "Phone", "Wi-Fi"];
 
+// Predefined looks. Sab mein dark foreground aur light background rakha hai,
+// kyunki ulta (light on dark) QR kai scanners padh nahi pate.
+const PRESETS = [
+  { name: "Classic", fg: "#000000", bg: "#ffffff", ecl: "M", margin: 4 },
+  { name: "Ocean", fg: "#0b3d91", bg: "#e8f1ff", ecl: "M", margin: 4 },
+  { name: "Forest", fg: "#14532d", bg: "#ecfdf5", ecl: "Q", margin: 4 },
+  { name: "Sunset", fg: "#9a3412", bg: "#fff7ed", ecl: "Q", margin: 4 },
+  { name: "Slate", fg: "#1f2937", bg: "#e5e7eb", ecl: "H", margin: 4 },
+];
+
 // Wi-Fi string mein ye special characters aaye toh unke aage \ lagana padta hai
 function escapeWifi(s) {
   return s.replace(/([\\;,:"])/g, "\\$1");
@@ -87,11 +97,43 @@ function App() {
     ecl: "M",
   });
 
+  // preset lagate waqt size kya tha (initial Classic preset 256 par hai)
+  const [presetSize, setPresetSize] = useState(256);
+
   const canvasRef = useRef(null);
 
   // ek field / ek style setting badalne ke helpers
   const update = (key, value) => setFields({ ...fields, [key]: value });
   const updateStyle = (key, value) => setStyle({ ...style, [key]: value });
+
+  // preset chunne par sirf colors, ecl aur margin badlte hain.
+  // size nahi badalta, bas yaad rakhte hain ki preset kis size par laga tha.
+  const applyPreset = (p) => {
+    setStyle({ ...style, fg: p.fg, bg: p.bg, ecl: p.ecl, margin: p.margin });
+    setPresetSize(style.size);
+  };
+
+  // abhi ke settings kis preset se match karte hain (agar karte hain).
+  // size alag ho gaya ho toh koi preset active nahi maana jaata.
+  const activePreset =
+    style.size === presetSize
+      ? PRESETS.find(
+          (p) =>
+            p.fg === style.fg &&
+            p.bg === style.bg &&
+            p.ecl === style.ecl &&
+            p.margin === style.margin
+        )
+      : undefined;
+
+  // canvas ko PNG image bana ke download karwata hai.
+  // Canvas hi preview hai, isliye download bilkul preview jaisa hota hai.
+  const downloadPng = () => {
+    const link = document.createElement("a");
+    link.download = "qr-code.png";
+    link.href = canvasRef.current.toDataURL("image/png");
+    link.click();
+  };
 
   const { payload, error } = buildPayload(type, fields);
 
@@ -190,6 +232,25 @@ function App() {
       {error && <p className="error">{error}</p>}
 
       <div className="customize">
+        <h2>Presets</h2>
+        <div className="presets">
+          {PRESETS.map((p) => (
+            <button
+              key={p.name}
+              className={p === activePreset ? "preset active" : "preset"}
+              onClick={() => applyPreset(p)}
+            >
+              <span
+                className="swatch"
+                style={{ background: p.bg, borderColor: p.fg }}
+              >
+                <span className="dot" style={{ background: p.fg }}></span>
+              </span>
+              {p.name}
+            </button>
+          ))}
+        </div>
+
         <h2>Customize</h2>
 
         <label className="control">
@@ -252,6 +313,10 @@ function App() {
         ref={canvasRef}
         style={{ display: error ? "none" : "inline-block" }}
       ></canvas>
+
+      <button className="download" onClick={downloadPng} disabled={!!error}>
+        Download PNG
+      </button>
     </div>
   );
 }
